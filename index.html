@@ -1,0 +1,798 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>body{margin:0}img{max-width:100%}</style>
+</head>
+<body>
+<title>Wartungsraum B-7</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700&family=Saira+Stencil+One&family=VT323&display=swap">
+<style>
+/* Layout: links die Bühne (Raumansicht, Systemzeile, Inventar), rechts der Zuschauer-Monitor; unter 900px gestapelt */
+:root{
+  --bg:#121514; --panel:#1b1f1d; --panel2:#232826; --line:#363c38; --fg:#ddd9cd; --mute:#8f958c;
+  --amber:#e9a640; --phos:#a6ff7c; --crt:#86d8c8; --warn:#e3c84a; --danger:#e0645a;
+  --f-disp:"Saira Stencil One","Arial Black",Impact,sans-serif;
+  --f-body:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"VT323",ui-monospace,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--bg);color:var(--fg)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.5;padding-inline:16px;padding-block:14px 32px}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+button{font:inherit;color:inherit}
+.app{max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px 20px;border-bottom:1px solid var(--line);padding-bottom:10px}
+header h1{font-family:var(--f-disp);font-weight:400;font-size:clamp(26px,4vw,40px);line-height:1;margin:0;letter-spacing:.02em;text-wrap:balance}
+header .sub{color:var(--mute);font-size:13px;letter-spacing:.08em;text-transform:uppercase}
+.stats{margin-left:auto;display:flex;gap:16px;align-items:center;font-family:var(--f-mono);font-size:22px;font-variant-numeric:tabular-nums}
+.stats span b{color:var(--amber);font-weight:400}
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:6px 12px;cursor:pointer;font-size:14px}
+.btn:hover{border-color:var(--amber)}
+.btn:focus-visible,.hs:focus-visible,.inv button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.stage{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px}
+@media (max-width:900px){.stage{grid-template-columns:minmax(0,1fr)}}
+.room{display:flex;flex-direction:column;gap:10px;min-width:0}
+.view{position:relative;background:#000;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+#scene{display:block;width:100%;height:auto;aspect-ratio:800/480;max-width:100%}
+.hs{cursor:pointer}
+.hs:hover>*{filter:brightness(1.18)}
+.nav{position:absolute;top:50%;transform:translateY(-50%);width:42px;height:64px;border:0;background:rgba(10,12,11,.55);color:var(--fg);font-size:26px;cursor:pointer;border-radius:4px}
+.nav:hover{background:rgba(10,12,11,.8);color:var(--amber)}
+.nav.l{left:6px}.nav.r{right:6px}
+.wallname{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);font-family:var(--f-disp);font-size:13px;letter-spacing:.14em;background:rgba(10,12,11,.7);padding:2px 10px;border-radius:3px;color:var(--warn);white-space:nowrap}
+.msg{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--warn);border-radius:4px;padding:10px 14px;min-height:64px}
+.msg .who{font-family:var(--f-disp);color:var(--warn);font-size:12px;letter-spacing:.16em;display:block}
+.msg p{margin:2px 0 0;max-width:72ch}
+.msg .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.tag{font-family:var(--f-mono);font-size:18px;line-height:1;padding:3px 7px;border:1px solid var(--line);border-radius:3px;color:var(--crt);background:#0f1513}
+.invwrap{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:8px 10px}
+.invhead{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);margin-bottom:6px}
+.inv{display:flex;flex-wrap:wrap;gap:8px;min-height:40px}
+.inv button{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:7px 12px;cursor:pointer;font-size:14px}
+.inv button.sel{border-color:var(--amber);background:#3a2e17;color:#ffe1a8}
+.inv .empty{color:var(--mute);font-style:italic;font-size:14px;padding:6px 0}
+.selbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;font-size:13px;color:var(--mute)}
+/* Ticker */
+.ticker{background:#0b100f;border:1px solid var(--line);border-radius:4px;display:flex;flex-direction:column;min-height:0;height:100%;max-height:640px}
+@media (max-width:900px){.ticker{height:300px}}
+.thead{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line);font-family:var(--f-mono);font-size:20px;color:var(--crt)}
+.live{color:var(--danger)}
+.live::before{content:"";display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--danger);margin-right:6px;vertical-align:1px;animation:blink 1.2s steps(2) infinite}
+@keyframes blink{50%{opacity:.2}}
+@media (prefers-reduced-motion:reduce){.live::before{animation:none}}
+#feed{flex:1;overflow-y:auto;padding:8px 12px;font-family:var(--f-mono);font-size:19px;line-height:1.15;display:flex;flex-direction:column;gap:5px;min-height:0}
+#feed .l b{font-weight:400}
+#feed .sys{color:var(--warn)}
+#feed .help{background:#16241d;border-left:3px solid var(--phos);padding:2px 6px}
+#feed .spon{color:#f0c9ff}
+.nosig{flex:1;display:grid;place-items:center;font-family:var(--f-mono);font-size:28px;color:var(--mute);background:repeating-linear-gradient(0deg,#0b0d0c 0 2px,#151816 2px 4px)}
+.tfoot{padding:8px 12px;border-top:1px solid var(--line)}
+.tfoot .btn{width:100%}
+/* Nahansicht */
+#zoom{position:absolute;inset:0;background:rgba(8,10,9,.94);display:flex;flex-direction:column;overflow:auto;z-index:3}
+@media (max-width:640px){#zoom{position:fixed;inset:auto 0 0 0;top:12vh;border-top:2px solid var(--amber)}}
+.zhead{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#0d100f;z-index:1}
+.zhead h2{font-family:var(--f-disp);font-weight:400;font-size:18px;margin:0;letter-spacing:.06em;color:var(--warn)}
+.zbody{padding:14px;display:flex;flex-direction:column;align-items:center;gap:12px}
+.zbody svg{width:100%;max-width:640px;height:auto}
+.znote{color:var(--mute);font-size:14px;text-align:center;max-width:56ch;margin:0}
+/* Kalender */
+.cal{background:#efe8d6;color:#2a251d;border-radius:4px;padding:10px 12px 14px;width:min(420px,100%);box-shadow:0 6px 0 #6d6450}
+.calh{display:flex;justify-content:space-between;align-items:center;font-family:var(--f-disp);font-size:20px}
+.calh button{background:#2a251d;color:#efe8d6;border:0;border-radius:3px;width:34px;height:30px;cursor:pointer;font-size:18px}
+.grid{position:relative;display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-top:8px}
+.grid .dn{font-size:12px;text-align:center;font-weight:700;color:#7a6f5a}
+.grid .c{aspect-ratio:1.15;border:1px solid #cfc5ad;display:grid;place-items:center;font-family:var(--f-mono);font-size:22px;background:#f7f2e5}
+.grid .c.x{background:#e4dcc6}
+.grid .c.cover{background:#c9b48a;border-color:#b29c70;color:transparent}
+.grid .c.hole{background:#f7f2e5;box-shadow:inset 0 0 0 3px #2a251d;border-radius:50%;color:#b3261e;font-weight:700}
+.cardlabel{font-family:var(--f-mono);font-size:18px;text-align:center;background:#c9b48a;margin-top:6px;border-radius:2px;color:#3b2f1a}
+/* Schloss, Tastenfeld, Kasten */
+.dials{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+.dial{display:flex;flex-direction:column;align-items:center;gap:4px}
+.dial input{width:74px;text-align:center;font-family:var(--f-mono);font-size:34px;background:#0c0f0e;border:1px solid var(--line);color:var(--fg);border-radius:4px;padding:2px}
+.dial button{width:74px;height:30px;background:var(--panel2);border:1px solid var(--line);border-radius:4px;cursor:pointer}
+.pad{background:#1a1c1b;border:2px solid #3b403c;border-radius:8px;padding:12px;display:grid;grid-template-columns:repeat(3,64px);gap:8px}
+.pad .disp{grid-column:1/-1;height:52px;background:#081008;border-radius:4px;font-family:var(--f-mono);font-size:40px;letter-spacing:.3em;display:grid;place-items:center;color:var(--phos)}
+.pad .disp.off{color:#1f2a1f;background:#050605}
+.pad button{height:52px;background:#2b302d;border:1px solid #454b47;border-radius:5px;font-family:var(--f-mono);font-size:30px;cursor:pointer}
+.pad button:active{background:#3a403c}
+.fuses{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;width:min(560px,100%)}
+@media (max-width:480px){.fuses{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.slot{background:#6d726c;border:2px solid #4b4f4a;border-radius:6px;padding:10px 6px;display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;color:#141615}
+.slot:hover{border-color:var(--amber)}
+.slot .lab{font-family:var(--f-disp);font-size:14px;letter-spacing:.06em}
+.slot .sock{width:38px;height:70px;border-radius:6px;background:#1d1f1e;display:grid;place-items:center}
+.slot .fuse{width:28px;height:60px;border-radius:5px;background:linear-gradient(90deg,#c9ccc6,#f1f2ee 40%,#a9aca6);display:grid;place-items:center;font-family:var(--f-mono);font-size:16px;color:#333}
+.slot .fuse.burnt{background:linear-gradient(90deg,#2a2725,#4a3f37 40%,#1f1c1a);color:#aaa}
+.slot .st{font-size:12px;font-family:var(--f-mono);font-size:17px}
+.book{background:#d8cfb4;color:#2c2619;border-radius:3px;padding:18px 22px;width:min(460px,100%);font-family:"Segoe Print","Bradley Hand","Comic Sans MS",cursive;font-size:17px;line-height:1.55;box-shadow:0 6px 0 #776c51;min-height:200px}
+.book .pg{font-family:var(--f-mono);font-size:16px;color:#6f6448;text-align:right}
+.row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.items{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+.items button{background:var(--panel2);border:1px dashed var(--amber);padding:10px 14px;border-radius:4px;cursor:pointer}
+/* Erfolg + Sieg */
+#toasts{position:fixed;top:14px;right:16px;display:flex;flex-direction:column;gap:8px;z-index:20;width:min(320px,calc(100% - 32px));pointer-events:none}
+.toast{background:#1d1a10;border:1px solid var(--warn);border-radius:4px;padding:8px 14px;box-shadow:0 8px 24px rgba(0,0,0,.5);animation:tin .35s ease-out}
+.toast small{font-family:var(--f-disp);letter-spacing:.14em;color:var(--warn);font-size:11px}
+.toast b{display:block;font-size:17px}
+.toast span{font-size:13px;color:var(--mute)}
+@keyframes tin{from{transform:translateY(-10px);opacity:0}}
+@media (prefers-reduced-motion:reduce){.toast{animation:none}}
+#win{position:fixed;inset:0;background:rgba(5,7,6,.92);display:grid;place-items:center;z-index:15;padding:16px}
+.wincard{background:var(--panel);border:1px solid var(--phos);border-radius:6px;padding:24px;max-width:520px;width:100%}
+.wincard h2{font-family:var(--f-disp);font-weight:400;font-size:40px;margin:0;color:var(--phos)}
+.wincard dl{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;font-variant-numeric:tabular-nums;margin:14px 0}
+.wincard dt{color:var(--mute)}
+.wincard dd{margin:0;font-family:var(--f-mono);font-size:22px}
+details.notes{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:10px 14px}
+details.notes summary{cursor:pointer;font-weight:600}
+details.notes .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:18px;margin-top:10px}
+details.notes h3{font-family:var(--f-disp);font-weight:400;font-size:17px;letter-spacing:.04em;color:var(--warn);margin:0 0 6px}
+details.notes ol,details.notes ul{margin:0;padding-left:20px}
+details.notes li{margin-bottom:5px;max-width:70ch}
+</style>
+
+<div class="app">
+  <header>
+    <div>
+      <div class="sub">Bodenlos · Ebene 1 · Probe-Rätselraum</div>
+      <h1>Wartungsraum B-7</h1>
+    </div>
+    <div class="stats">
+      <span>Zeit <b id="time">00:00</b></span>
+      <span>Hilfen <b id="hints">0</b></span>
+      <button class="btn" id="restart" type="button">Neuer Raum</button>
+    </div>
+  </header>
+
+  <div class="stage">
+    <section class="room">
+      <div class="view" id="view">
+        <svg id="scene" viewBox="0 0 800 480" role="img" aria-label="Raumansicht"></svg>
+        <button class="nav l" id="navL" type="button" aria-label="Nach links drehen">‹</button>
+        <button class="nav r" id="navR" type="button" aria-label="Nach rechts drehen">›</button>
+        <div class="wallname" id="wallname"></div>
+        <div id="zoom" hidden></div>
+      </div>
+      <div class="msg" id="msg" aria-live="polite"></div>
+      <div class="invwrap">
+        <div class="invhead"><span>Inventar</span><span id="selhint">Antippen wählt aus. Zweiter Gegenstand kombiniert. Dann auf etwas im Raum tippen.</span></div>
+        <div class="inv" id="inv"></div>
+        <div class="selbar" id="selbar" hidden></div>
+      </div>
+    </section>
+
+    <aside class="ticker" aria-label="Zuschauer-Monitor">
+      <div class="thead"><span class="live">LIVE</span><span id="viewers">1.204 sehen zu</span></div>
+      <div id="feed"></div>
+      <div class="nosig" id="nosig" hidden>KEIN SIGNAL</div>
+      <div class="tfoot"><button class="btn" id="ask" type="button">Publikum um Hilfe bitten</button></div>
+    </aside>
+  </div>
+
+  <details class="notes">
+    <summary>Für Tester: Lösungsweg und Designnotizen (Spoiler)</summary>
+    <div class="cols">
+      <div>
+        <h3>Lösungsweg dieser Variante</h3>
+        <ol id="solution"></ol>
+      </div>
+      <div>
+        <h3>Was hier gezeigt wird</h3>
+        <ul>
+          <li><b>Drei verschiedene Aha-Typen:</b> eine Schablone auf den richtigen Kalendermonat legen (mit einer echten Falle, weil der Kalender noch auf September hängt), ein Werkzeug aus Eigenschaften basteln, und das eigene Licht opfern, um Leuchtfarbe zu sehen.</li>
+          <li><b>Eine echte Entscheidung:</b> zwei Sicherungen, drei Verbraucher. Wer die Monitor-Sicherung nimmt, behält das Licht, verliert aber das Publikum und damit die Hilfen.</li>
+          <li><b>Eigenschaftssystem aus Bodenlos:</b> Gegenstände zeigen Werte wie <i>lang 3</i> oder <i>klebend 2</i>. Das Gitter verlangt etwas Langes mit Haken, egal woraus.</li>
+          <li><b>Gegen Spoiler:</b> Monat, Lochpositionen, Spindcode, Hakennummern und die Reihenfolge der römischen Zahlen werden je Raum ausgewürfelt. Den Weg kann man weitererzählen, die Zahlen nicht. Selbst die Trolle im Chat nennen den falschen September-Code der jeweiligen Variante.</li>
+          <li><b>Hilfe aus der Welt:</b> Hinweise kommen als Zuschauerkommentare, in vier Stufen von Schubs bis Lösung, und gezählt.</li>
+        </ul>
+      </div>
+    </div>
+  </details>
+</div>
+
+<div id="toasts" aria-live="polite"></div>
+<div id="win" hidden></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ---------- Zufall und Variante ---------- */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+var MONATE=["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
+var JAHR=2026, START_MONAT=8;
+function offs(m){return (new Date(JAHR,m,1).getDay()+6)%7;}
+function dim(m){return new Date(JAHR,m+1,0).getDate();}
+function shuffle(a,r){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(r()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
+var TOOLS=[{id:"saege",name:"Säge"},{id:"hammer",name:"Hammer"},{id:"zieher",name:"Schraubenzieher"},{id:"waage",name:"Wasserwaage"},{id:"zange",name:"Zange"},{id:"schluessel",name:"Schraubenschlüssel"}];
+var TROLLCODES=["1234","4711","0000","6969"];
+var ROEM=["I","II","III","IV"];
+
+function makeVariant(seed){
+  var r=mulberry32(seed), ri=function(n){return Math.floor(r()*n);};
+  var month; do{month=ri(12);}while(month===START_MONAT);
+  var off=offs(month), days=dim(month), dates, rows;
+  for(;;){
+    var set={},list=[];
+    while(list.length<3){var d=1+ri(days);if(!set[d]){set[d]=1;list.push(d);}}
+    dates=list.sort(function(a,b){return a-b;});
+    rows=dates.map(function(d){return Math.floor((d+off-1)/7);});
+    if(rows[0]!==rows[1]&&rows[1]!==rows[2]&&rows[0]!==rows[2])break;
+  }
+  var holes=dates.map(function(d){return d+off-1;});
+  var digits=shuffle([1,2,3,4,5,6,7,8,9],r).slice(0,6);
+  var order=shuffle([0,1,2,3,4,5],r).slice(0,4);
+  var code=order.map(function(i){return digits[i];}).join("");
+  var sOff=offs(START_MONAT), sDays=dim(START_MONAT);
+  var decoy=holes.map(function(i){var d=i-sOff+1;return(d>=1&&d<=sDays)?d:null;});
+  return {seed:seed,month:month,dates:dates,holes:holes,digits:digits,order:order,code:code,decoy:decoy};
+}
+function newVariant(){
+  var seed=1+Math.floor(Math.random()*99999), v=makeVariant(seed);
+  while(TROLLCODES.indexOf(v.code)>=0){seed++;v=makeVariant(seed);}
+  return v;
+}
+
+/* ---------- Gegenstände ---------- */
+var ITEMS={
+  karte:{name:"Stempelkarte",props:[["Papier",null]],desc:function(){return "Stempelkarte von K. Brettschneider. Oben steht "+MONATE[V.month].toUpperCase()+". Ein Raster aus sieben Spalten, drei Felder sind ausgestanzt. Der Mann hat in diesem Monat genau dreimal gestempelt. Das System respektiert das.";},zoom:"karte"},
+  buegel:{name:"Kleiderbügel",props:[["biegsam",2],["spitz",1]],desc:"Ein Kleiderbügel aus Draht. Biegsam, sofern man ihn ordentlich festhält. Du allein hältst nichts ordentlich fest."},
+  draht:{name:"Drahthaken",props:[["biegsam",2],["spitz",1],["Haken",null]],desc:"Ehemals Kleiderbügel, jetzt Haken. Mehr Karriere, als du hier machen wirst."},
+  band:{name:"Isolierband",props:[["klebend",2],["reißfest",1]],desc:"Schwarzes Isolierband. Hält alles zusammen außer Beziehungen."},
+  buch:{name:"Notizbuch",props:[["brennbar",1]],desc:"Das Notizbuch des Hausmeisters. Fleckig, riecht nach Kaffee.",zoom:"buch"},
+  mopp:{name:"Wischmopp",props:[["lang",3],["saugfähig",3],["stumpf",1]],desc:"Ein Wischmopp. Lang, saugfähig und sichtlich beleidigt, dass du ihn angefasst hast."},
+  stange:{name:"Hakenstange",props:[["lang",3],["spitz",1],["Haken",null]],desc:"Mopp, Drahthaken, Isolierband. Ingenieurskunst auf Ebene 1. Das System hat schon Schlimmeres gesehen, aber nicht oft."},
+  sk:{name:"Schlüssel „SK“",props:[["klein",1]],desc:"Ein kleiner Schlüssel. Auf dem Anhänger steht SK."},
+  sich1:{name:"Sicherung",props:[["elektrisch",1]],desc:"Eine Sicherung, 16 Ampere. Sie war bis eben für etwas zuständig."},
+  sich2:{name:"Sicherung",props:[["elektrisch",1]],desc:"Eine Sicherung, 16 Ampere. Sie war bis eben für etwas zuständig."}
+};
+var NOTIZEN=[
+  "Tag 1. Neue Stelle. Wartungsraum B-7, Ebene 1. Die Tür geht nur auf, wenn sie Strom hat und den Code bekommt. Den Code darf ich mir nicht aufschreiben, haben sie gesagt.",
+  "Tag 3. Hab ihn mir trotzdem aufgeschrieben. An die Wand, mit der guten Farbe aus dem Regal, die im Dunkeln leuchtet. Die Kameras sehen im Dunkeln nichts. Die Zuschauer auch nicht. Gut so.",
+  "Tag 4. Die Sicherung von der Tür hab ich in die Kaffeemaschine gesteckt. Jetzt ist sie durch. Die Kaffeemaschine auch. Ersatz gibt es nicht. Man muss Prioritäten setzen.",
+  "Tag 5. Den Schlüssel vom Sicherungskasten hab ich hinters Lüftungsgitter gehängt. Da kommt keiner ran. Ich auch nicht, fällt mir gerade auf.",
+  "Tag 6. Die Leiter ist weg. Hab sie verheizt, es war kalt. Ich bereue nichts. Na gut, ein bisschen."
+];
+
+/* ---------- Zustand ---------- */
+var V, S;
+function freshState(){
+  return {wall:0,inv:[],sel:null,calMonth:START_MONAT,calOverlay:false,
+    spindOpen:false,spindItems:["buegel","band","buch"],karteTaken:false,moppTaken:false,
+    keyGot:false,boxOpen:false,slots:{licht:"sich1",monitor:"sich2",tuer:null,kaffee:"burnt"},
+    seenDark:false,won:false,hints:0,elapsed:0,ach:[],hintIdx:{},autoHinted:{},stage:"A",stageSince:0,
+    pickedOnce:false,bookPage:0,keypad:"",zoom:null,viewers:1204};
+}
+function light(){return !!S.slots.licht;}
+function monitorOn(){return !!S.slots.monitor;}
+function doorPower(){return !!S.slots.tuer;}
+function stageOf(){
+  if(!S.spindOpen)return "A";
+  if(!S.keyGot)return "B";
+  if(!S.boxOpen)return "C";
+  if(!S.seenDark)return "D";
+  return "E";
+}
+
+/* ---------- Texte ---------- */
+var NOPE=[
+  "Das System hat deinen Vorschlag geprüft und abgelehnt.",
+  "Nein. Aber schön, dass du es versucht hast. Es steht jetzt im Protokoll.",
+  "Das ergibt nichts. Nicht einmal Müll.",
+  "Kreativ. Falsch, aber kreativ.",
+  "Die Zuschauer haben kurz gelacht. Das zählt nicht als Fortschritt."
+];
+function nope(){say(NOPE[Math.floor(Math.random()*NOPE.length)]);}
+function hintsFor(st){
+  var M=MONATE[V.month].toUpperCase();
+  var seq=V.order.map(function(c,k){return ROEM[k]+" "+TOOLS[c].name+" "+V.digits[c];}).join(", ");
+  return {
+    A:["die stempeluhr hängt da nicht zur deko. nehmt euch mal ne karte",
+       "stempelkarte hat löcher, kalender hat zahlen. das ist kein zufall",
+       "lest mal was OBEN auf der karte steht. und dann guckt auf den kalender",
+       "kalender auf "+M+" blättern, karte auflegen, die drei zahlen von oben nach unten ins spindschloss: "+V.dates.join("-")],
+    B:["da oben hinterm lüftungsgitter glitzert was",
+       "zu hoch zum greifen. ihr braucht was LANGES mit nem HAKEN dran",
+       "der kleiderbügel ist aus draht. draht biegt man am besten in was, das festhält",
+       "bügel in den schraubstock, haken mit isolierband an den mopp, dann damit ans gitter"],
+    C:["SK. was an dieser wand hat ein kleines vorhängeschloss",
+       "SicherungsKasten. neben der tür. schlüssel draufziehen und reintippen"],
+    D:["drei sachen wollen strom, zwei sicherungen sind da. irgendwer muss verzichten",
+       "lest das notizbuch. womit hat der hausmeister den code geschrieben, und wann sieht man das",
+       "LICHT-sicherung raus und in TÜR rein. dann seht ihr was. wir dafür nicht mehr"],
+    E:["im dunkeln stehen römische zahlen auf der werkzeugwand. im hellen hängen nummernschilder",
+       "auf welchem umriss steht die I? welche nummer hängt im hellen genau dort? dann II, III, IV",
+       "fürs tastenfeld muss eine sicherung in TÜR stecken. ob das licht an ist, ist egal",
+       seq+". also "+V.code]
+  }[st];
+}
+
+/* ---------- Ausgabe ---------- */
+var $=function(id){return document.getElementById(id);};
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+function say(text,props){
+  var h='<span class="who">SYSTEM</span><p>'+esc(text)+"</p>";
+  if(props&&props.length){h+='<div class="tags">'+props.map(function(p){return '<span class="tag">'+esc(p[0])+(p[1]!=null?" "+p[1]:"")+"</span>";}).join("")+"</div>";}
+  $("msg").innerHTML=h;
+}
+var ACH={
+  start:["Freier Fall","Durch eine Falltür gestürzt und gelandet. Mit dem Gesicht, aber gelandet."],
+  pick:["Du hast etwas aufgehoben","Das System ist stolz auf dich. Das ist gelogen."],
+  sept:["Gestern war September","Einem Kalender geglaubt, der seit Wochen falsch hängt."],
+  spind:["Schlüsseldienst","Einen fremden Spind geöffnet. Herr Brettschneider wird es nie erfahren."],
+  bastel:["Bastelstunde","Aus drei nutzlosen Dingen ein nützliches gemacht."],
+  angel:["Petri Heil","Einen Schlüssel aus einem Lüftungsschacht geangelt."],
+  dunkel:["Lichtscheu","Freiwillig das Licht ausgemacht. Die Zuschauer sind empört."],
+  publikum:["Ohne Publikum","Den Zuschauern den Stecker gezogen. Wörtlich."],
+  troll:["Trollfutter","Einen Code aus dem Zuschauerchat eingetippt. Wirklich?"],
+  raus:["Notausgang","Wartungsraum B-7 verlassen. Ebene 1 wartet. Sie ist nicht beeindruckt."]
+};
+function ach(key){
+  if(S.ach.indexOf(key)>=0)return;
+  S.ach.push(key);
+  var a=ACH[key], t=document.createElement("div");
+  t.className="toast";
+  t.innerHTML="<small>ERFOLG FREIGESCHALTET</small><b>"+esc(a[0])+"</b><span>"+esc(a[1])+"</span>";
+  var box=$("toasts");box.appendChild(t);
+  while(box.children.length>2)box.removeChild(box.firstChild);
+  setTimeout(function(){t.remove();},4200);
+  if(monitorOn()&&key!=="start")setTimeout(function(){chat(pick(["gg","LOL","haha erfolg","klatsch klatsch","das zählt doch nicht","ok das war gut"]));},700);
+}
+
+/* ---------- Ticker ---------- */
+var NICKS=["Krümel_88","Oma_Gertrud","xXSchattenXx","BetKönig","Dachlatte","Frau_Hölle","Pommesgabel","NachtSchicht","zuckerschnecke","Kaktus_Karl","LeiseRiesel","Hubraum2000"];
+var HELPERS=["Hilfsbereit_Hans","Lösungsoma","Spoilerbär","Tante_Tipp"];
+function pick(a){return a[Math.floor(Math.random()*a.length)];}
+function nickColor(n){var h=0;for(var i=0;i<n.length;i++)h=(h*31+n.charCodeAt(i))%360;return "hsl("+h+",70%,70%)";}
+function line(html,cls){
+  if(!monitorOn())return;
+  var f=$("feed"),d=document.createElement("div");
+  d.className="l"+(cls?" "+cls:"");d.innerHTML=html;f.appendChild(d);
+  while(f.children.length>60)f.removeChild(f.firstChild);
+  f.scrollTop=f.scrollHeight;
+}
+function chat(text,nick,cls){nick=nick||pick(NICKS);line('<b style="color:'+nickColor(nick)+'">'+esc(nick)+":</b> "+esc(text),cls);}
+function ambient(){
+  var st=stageOf(), p=["50 gold, dass hier keiner rauskommt","warum guckt man so lange einen eimer an","wette läuft: raus unter 20 min, quote 3,4","ich hab chips da, macht weiter","einfach die tür eintreten lol","ist das live oder aufgezeichnet","der vorige crawler hat 2 stunden gebraucht","CODE IST 1234 hab ich gesehen","nehmt 4711 für die tür, safe","der schlüssel ist im eimer, glaubt mir","geh mal zur werkbank","ich bin nur wegen dem hausmeister hier"];
+  if(st==="A"&&V.decoy.every(function(x){return x!==null;}))p.push(V.decoy.join("-")+" für den spind, garantiert","kalender lesen hilft. "+V.decoy.join("-")+" oder so");
+  if(!light())p=["BILD SCHWARZ??","ich hab nicht für ein schwarzes bild bezahlt","hä was leuchtet da grün","LICHT AN","ich seh nur meine eigene spiegelung","atmosphärisch. hasse es"];
+  if(Math.random()<.12){line('<span class="spon">★ Sponsor '+esc(pick(["Fleischerei Habicht","Bestattungen Ruhe sanft","Kiosk am Eck","Autohaus Krause"]))+" schickt "+esc(pick(["eine Packung Knäckebrot","einen Gutschein für Kaffee","ein aufmunterndes Nicken","eine Taschenlampe ohne Batterien"]))+". Die Lieferung kommt nicht durch die Wand.</span>");return;}
+  chat(pick(p));
+}
+function giveHint(counted){
+  var st=stageOf(), list=hintsFor(st), i=S.hintIdx[st]||0;
+  if(!counted){chat(list[0],pick(HELPERS),"help");return;}
+  var h=list[Math.min(i,list.length-1)];
+  S.hintIdx[st]=i+1;S.hints++;
+  chat(h,pick(HELPERS),"help");
+  renderHeader();
+}
+
+/* ---------- Grafik ---------- */
+function defs(){return '<defs>'+
+ '<linearGradient id="gWall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a403b"/><stop offset="1" stop-color="#262b28"/></linearGradient>'+
+ '<linearGradient id="gFloor" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22261f"/><stop offset="1" stop-color="#121410"/></linearGradient>'+
+ '<radialGradient id="gBulb" cx=".5" cy="0" r=".85"><stop offset="0" stop-color="#e9a640" stop-opacity=".26"/><stop offset="1" stop-color="#e9a640" stop-opacity="0"/></radialGradient>'+
+ '<pattern id="pPeg" width="18" height="18" patternUnits="userSpaceOnUse"><rect width="18" height="18" fill="#8d6c47"/><circle cx="9" cy="9" r="2" fill="#4d3a26"/></pattern>'+
+ '<pattern id="pHaz" width="22" height="22" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="22" height="22" fill="#e3c84a"/><rect width="11" height="22" fill="#1b1b1b"/></pattern>'+
+ '<pattern id="pConc" width="120" height="80" patternUnits="userSpaceOnUse"><rect width="120" height="80" fill="none" stroke="#2e3430" stroke-width="2"/></pattern>'+
+ '<filter id="fGlow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>'+
+ '</defs>';}
+function hs(id,label,inner){return '<g class="hs" data-hs="'+id+'" tabindex="0" role="button" aria-label="'+label+'">'+inner+"</g>";}
+function shell(){
+  return '<rect width="800" height="400" fill="url(#gWall)"/><rect width="800" height="400" fill="url(#pConc)"/>'+
+    '<rect y="400" width="800" height="80" fill="url(#gFloor)"/><rect y="396" width="800" height="8" fill="#191c1a"/>'+
+    '<rect y="12" width="800" height="10" fill="#4a504b"/><rect y="14" width="800" height="3" fill="#5e655f"/>';
+}
+function toolShape(id){
+  switch(id){
+    case "saege":return '<path d="M-70,-24 L70,-24 L84,14 L-70,14 Z"/><rect x="-104" y="-30" width="30" height="50" rx="10"/>';
+    case "hammer":return '<rect x="-44" y="-50" width="88" height="26" rx="4"/><rect x="-7" y="-24" width="14" height="78" rx="5"/>';
+    case "zieher":return '<rect x="-86" y="-13" width="56" height="26" rx="10"/><rect x="-30" y="-4" width="110" height="8"/>';
+    case "waage":return '<rect x="-94" y="-14" width="188" height="28" rx="3"/><rect x="-16" y="-7" width="32" height="14" rx="7"/>';
+    case "zange":return '<path d="M-80,-26 Q-30,-14 0,0 L70,-8 M-80,26 Q-30,14 0,0 L70,8" fill="none"/><circle cx="0" cy="0" r="7"/>';
+    case "schluessel":return '<circle cx="-70" cy="0" r="18"/><rect x="-54" y="-7" width="100" height="14"/><path d="M46,-20 h30 v12 h-14 v16 h14 v12 h-30 z"/>';
+  }
+  return "";
+}
+function cellCenter(i){return {x:20+213*(i%3+.5),y:40+160*(Math.floor(i/3)+.5)};}
+function board(dark){
+  var s="";
+  if(!dark){
+    s+='<rect width="680" height="370" rx="6" fill="url(#pPeg)" stroke="#5a4230" stroke-width="6"/>';
+    TOOLS.forEach(function(t,i){
+      var c=cellCenter(i);
+      s+='<g transform="translate('+c.x+","+(c.y+12)+')" fill="rgba(20,14,8,.18)" stroke="#f1ead6" stroke-width="3" stroke-dasharray="7 5" stroke-linejoin="round">'+toolShape(t.id)+"</g>";
+      s+='<circle cx="'+c.x+'" cy="'+(c.y-58)+'" r="5" fill="#2c2c2c"/>';
+      s+='<g transform="translate('+(c.x+40)+","+(c.y-58)+')"><rect x="-16" y="-14" width="32" height="28" rx="4" fill="#e8e1cc" stroke="#7a705c"/><text y="8" text-anchor="middle" font-family="VT323, monospace" font-size="26" fill="#2a2620">'+V.digits[i]+"</text></g>";
+    });
+  } else {
+    s+='<g fill="#a6ff7c" filter="url(#fGlow)" opacity=".9"><circle cx="8" cy="8" r="5"/><circle cx="672" cy="8" r="5"/><circle cx="8" cy="362" r="5"/><circle cx="672" cy="362" r="5"/></g>';
+    s+='<text x="340" y="34" text-anchor="middle" font-family="Saira Stencil One, Impact, sans-serif" font-size="30" fill="#a6ff7c" filter="url(#fGlow)" letter-spacing="8">TÜR</text>';
+    V.order.forEach(function(cell,k){
+      var c=cellCenter(cell);
+      s+='<text x="'+c.x+'" y="'+(c.y+30)+'" text-anchor="middle" font-family="Saira Stencil One, Impact, sans-serif" font-size="78" fill="#a6ff7c" filter="url(#fGlow)" transform="rotate('+((k%2?4:-5))+" "+c.x+" "+c.y+')">'+ROEM[k]+"</text>";
+    });
+  }
+  return s;
+}
+
+function wallN(){
+  var mon=monitorOn(), pw=doorPower(), s="";
+  s+=hs("monitor","Monitor",'<line x1="400" y1="20" x2="400" y2="30" stroke="#4a504b" stroke-width="6"/><rect x="328" y="28" width="144" height="88" rx="6" fill="#1a1d1c" stroke="#4a504b" stroke-width="3"/><rect x="338" y="36" width="124" height="70" rx="4" fill="'+(mon?"#0f2a27":"#0b0c0c")+'"/>'+
+    (mon?'<text x="348" y="54" font-family="VT323, monospace" font-size="16" fill="#e0645a">● LIVE</text><g stroke="#86d8c8" stroke-width="3" opacity=".7"><line x1="348" y1="66" x2="440" y2="66"/><line x1="348" y1="76" x2="420" y2="76"/><line x1="348" y1="86" x2="450" y2="86"/><line x1="348" y1="96" x2="400" y2="96"/></g>':""));
+  s+=hs("tuer","Stahltür",'<rect x="282" y="126" width="216" height="274" fill="url(#pHaz)"/><rect x="298" y="140" width="184" height="260" fill="#5d645e" stroke="#2c302d" stroke-width="3"/><rect x="314" y="156" width="152" height="228" fill="none" stroke="#4b514c" stroke-width="3"/>'+
+    '<text x="390" y="206" text-anchor="middle" font-family="Saira Stencil One, Impact, sans-serif" font-size="30" fill="#cfc8b2">AUSGANG</text><text x="390" y="232" text-anchor="middle" font-family="Saira Stencil One, Impact, sans-serif" font-size="14" fill="#aaa391">NUR MIT STROM UND CODE</text>'+
+    [170,370].map(function(y){return [310,470].map(function(x){return '<circle cx="'+x+'" cy="'+y+'" r="4" fill="#3d423e"/>';}).join("");}).join(""));
+  var keys="";for(var r=0;r<4;r++)for(var c=0;c<3;c++)keys+='<rect x="'+(512+c*11)+'" y="'+(258+r*9)+'" width="8" height="6" rx="1" fill="'+(pw?"#4b5a4b":"#3a3d3b")+'"/>';
+  s+=hs("keypad","Tastenfeld",'<rect x="504" y="232" width="48" height="76" rx="4" fill="#1b1d1c" stroke="#454b47" stroke-width="2"/><rect x="510" y="238" width="36" height="14" rx="2" fill="'+(pw?"#0c2a0c":"#070807")+'"/>'+keys+'<circle cx="540" cy="300" r="3" fill="'+(pw?"#a6ff7c":"#3a1a18")+'"/>');
+  var box='<rect x="588" y="148" width="124" height="124" rx="4" fill="#6d726c" stroke="#3e423e" stroke-width="3"/><path d="M652,170 L634,206 L650,206 L640,240 L668,196 L652,196 L662,170 Z" fill="#e3c84a" stroke="#1b1b1b" stroke-width="2"/>'+
+    '<text x="600" y="264" font-family="Saira Stencil One, Impact, sans-serif" font-size="14" fill="#2a2d2a">SICHERUNGEN</text>';
+  if(!S.boxOpen)box+='<rect x="694" y="200" width="16" height="14" rx="2" fill="#b89a3a"/><path d="M697,200 v-6 a5,5 0 0 1 10,0 v6" fill="none" stroke="#8f8f8f" stroke-width="3"/>';
+  else box+='<path d="M588,148 L548,160 L548,284 L588,272 Z" fill="#5b605a" stroke="#3e423e" stroke-width="3"/>';
+  s+=hs("kasten","Sicherungskasten",box);
+  s+=hs("kamera","Kamera",'<rect x="730" y="26" width="44" height="22" rx="4" fill="#26292a" transform="rotate(18 752 37)"/><circle cx="738" cy="44" r="5" fill="#111"/><circle cx="764" cy="30" r="3" fill="#e0645a"/>');
+  return s;
+}
+function wallNglow(){
+  var s="";
+  if(monitorOn())s+='<rect x="338" y="36" width="124" height="70" rx="4" fill="#86d8c8" opacity=".35" filter="url(#fGlow)"/>';
+  if(doorPower())s+='<rect x="510" y="238" width="36" height="14" rx="2" fill="#a6ff7c" opacity=".7" filter="url(#fGlow)"/><circle cx="540" cy="300" r="3" fill="#a6ff7c" filter="url(#fGlow)"/>';
+  s+='<g filter="url(#fGlow)"><circle cx="650" cy="210" r="30" fill="none" stroke="#a6ff7c" stroke-width="3" stroke-dasharray="6 6"/><text x="650" y="218" text-anchor="middle" font-family="Saira Stencil One, Impact, sans-serif" font-size="20" fill="#a6ff7c">SK</text></g>';
+  return s;
+}
+function wallO(){
+  var s="";
+  s+=hs("wand","Werkzeugwand",'<g transform="translate(360,70) scale(.559)">'+board(false)+"</g>");
+  s+=hs("werkbank","Werkbank",'<rect x="40" y="272" width="300" height="20" fill="#6b4a2e"/><rect x="40" y="292" width="300" height="8" fill="#523823"/><rect x="52" y="300" width="14" height="100" fill="#523823"/><rect x="314" y="300" width="14" height="100" fill="#523823"/>');
+  s+=hs("schraubstock","Schraubstock",'<rect x="226" y="236" width="70" height="36" rx="3" fill="#3f6b8a"/><rect x="212" y="224" width="22" height="34" fill="#355b75"/><rect x="288" y="224" width="22" height="34" fill="#355b75"/><rect x="296" y="248" width="56" height="7" rx="3" fill="#9a9a9a"/><circle cx="352" cy="251" r="6" fill="#9a9a9a"/>');
+  s+=hs("kiste","Werkzeugkiste",'<rect x="86" y="338" width="120" height="58" rx="4" fill="#9b2f24"/><rect x="86" y="338" width="120" height="14" fill="#7d241b"/><rect x="128" y="328" width="36" height="12" rx="4" fill="none" stroke="#4a4a4a" stroke-width="4"/>');
+  return s;
+}
+function wallOglow(){return '<g transform="translate(360,70) scale(.559)">'+board(true)+"</g>";}
+function wallS(){
+  var s="";
+  s+=hs("regal","Regal",'<rect x="70" y="110" width="12" height="290" fill="#59605a"/><rect x="298" y="110" width="12" height="290" fill="#59605a"/>'+[180,262,344].map(function(y){return '<rect x="70" y="'+y+'" width="240" height="8" fill="#6c736d"/>';}).join("")+
+    '<rect x="96" y="314" width="34" height="30" rx="4" fill="#e8e3d6"/><rect x="134" y="314" width="34" height="30" rx="4" fill="#e8e3d6"/><rect x="212" y="300" width="70" height="44" fill="#8e7d61"/>'+
+    '<rect x="160" y="140" width="56" height="40" rx="3" fill="#5d4b36"/><rect x="226" y="150" width="44" height="30" rx="3" fill="#a64132"/>');
+  s+=hs("glasreiniger","Glasreiniger",'<rect x="100" y="132" width="30" height="48" rx="6" fill="#3d8fd1"/><rect x="108" y="118" width="14" height="16" fill="#e8e8e8"/><rect x="104" y="146" width="22" height="16" fill="#e8f2fb"/>');
+  s+=hs("farbe","Farbdose",'<rect x="110" y="214" width="62" height="48" rx="4" fill="#bfc4bd"/><rect x="108" y="210" width="66" height="8" rx="3" fill="#8f948d"/><rect x="116" y="226" width="50" height="22" fill="#2d3a2a"/><text x="141" y="242" text-anchor="middle" font-family="Saira Stencil One, Impact, sans-serif" font-size="9" fill="#a6ff7c">LEUCHT</text>');
+  s+=hs("gitter","Lüftungsgitter",'<rect x="520" y="40" width="160" height="74" fill="#151817" stroke="#7b827c" stroke-width="5"/>'+[0,1,2,3,4,5,6].map(function(i){return '<line x1="'+(534+i*21)+'" y1="44" x2="'+(534+i*21)+'" y2="110" stroke="#7b827c" stroke-width="4"/>';}).join("")+
+    (S.keyGot?"":'<g><path d="M612,60 l4,10 l10,4 l-10,4 l-4,10 l-4,-10 l-10,-4 l10,-4 z" fill="#ffe08a"/><circle cx="616" cy="92" r="5" fill="none" stroke="#d6b456" stroke-width="2"/></g>'));
+  s+=hs("eimer","Eimer",'<path d="M420,330 L500,330 L492,398 L428,398 Z" fill="#7d8780"/><ellipse cx="460" cy="331" rx="40" ry="6" fill="#596b67"/><path d="M424,330 Q460,296 496,330" fill="none" stroke="#4d534f" stroke-width="3"/>');
+  if(!S.moppTaken)s+=hs("mopp","Wischmopp",'<line x1="470" y1="340" x2="540" y2="150" stroke="transparent" stroke-width="30"/><line x1="470" y1="340" x2="540" y2="150" stroke="#b08a52" stroke-width="7" stroke-linecap="round"/><path d="M450,334 q20,-14 40,0 l-4,10 q-16,-8 -32,0 z" fill="#d8d2bd"/>');
+  return s;
+}
+function wallSglow(){
+  return '<g filter="url(#fGlow)" opacity=".75"><rect x="110" y="214" width="62" height="48" rx="4" fill="none" stroke="#a6ff7c" stroke-width="2"/><path d="M130,262 v14 M150,262 v22 M162,262 v9" stroke="#a6ff7c" stroke-width="3" stroke-linecap="round"/></g>';
+}
+function wallW(){
+  var s="";
+  var sp='<rect x="70" y="88" width="160" height="312" fill="#5f7a86" stroke="#3a4b53" stroke-width="3"/>';
+  if(!S.spindOpen){
+    sp+=[0,1,2,3,4].map(function(i){return '<rect x="100" y="'+(110+i*10)+'" width="100" height="5" rx="2" fill="#3a4b53"/>';}).join("")+
+      '<rect x="98" y="182" width="104" height="22" fill="#e8e1cc"/><text x="150" y="198" text-anchor="middle" font-family="VT323, monospace" font-size="17" fill="#2a2620">K. BRETTSCHNEIDER</text>'+
+      '<circle cx="200" cy="262" r="15" fill="#2b2f31" stroke="#9aa3a6" stroke-width="3"/><line x1="200" y1="262" x2="200" y2="251" stroke="#e3c84a" stroke-width="3"/>';
+  } else {
+    sp+='<rect x="78" y="96" width="144" height="296" fill="#1d2326"/><rect x="78" y="200" width="144" height="6" fill="#3a4b53"/><path d="M110,140 q40,-20 80,0 l-4,90 h-72 z" fill="#4d5a3e"/>'+
+      '<path d="M230,88 L282,104 L282,384 L230,400 Z" fill="#6f8a96" stroke="#3a4b53" stroke-width="3"/>';
+  }
+  s+=hs("spind","Spind",sp);
+  s+=hs("stempeluhr","Stempeluhr",'<rect x="318" y="148" width="112" height="118" rx="6" fill="#c9c1a8" stroke="#7c745e" stroke-width="3"/><circle cx="374" cy="194" r="32" fill="#f4efe0" stroke="#3a352a" stroke-width="3"/><line x1="374" y1="194" x2="374" y2="172" stroke="#222" stroke-width="3"/><line x1="374" y1="194" x2="392" y2="200" stroke="#222" stroke-width="3"/><rect x="346" y="240" width="56" height="8" fill="#3a352a"/>');
+  var cards="";for(var i=0;i<4;i++){if(i===1&&S.karteTaken)continue;cards+='<rect x="'+(452+i*11)+'" y="'+(140-((i%2)*6))+'" width="18" height="80" fill="'+(i===1?"#c9b48a":"#e2d9bf")+'" stroke="#8d8164"/>';}
+  s+=hs("karten","Kartenhalter",'<rect x="446" y="190" width="58" height="104" fill="#7c745e"/>'+cards+'<text x="475" y="284" text-anchor="middle" font-family="VT323, monospace" font-size="14" fill="#e8e1cc">KARTEN</text>');
+  var mon=MONATE[S.calMonth];
+  s+=hs("kalender","Wandkalender",'<line x1="645" y1="86" x2="645" y2="102" stroke="#555" stroke-width="2"/><circle cx="645" cy="86" r="4" fill="#b3261e"/><rect x="560" y="100" width="170" height="210" fill="#efe8d6" stroke="#9c927b" stroke-width="2"/><rect x="560" y="100" width="170" height="40" fill="#2a251d"/>'+
+    '<text x="645" y="128" text-anchor="middle" font-family="Saira Stencil One, Impact, sans-serif" font-size="20" fill="#efe8d6">'+mon.toUpperCase()+'</text>'+
+    (function(){var g="";for(var r=0;r<6;r++)for(var c=0;c<7;c++)g+='<rect x="'+(568+c*22.5)+'" y="'+(150+r*25)+'" width="20" height="22" fill="none" stroke="#cfc5ad"/>';return g;})());
+  return s;
+}
+var WALLS=[{n:"NORDEN · AUSGANG",f:wallN,g:wallNglow},{n:"OSTEN · WERKBANK",f:wallO,g:wallOglow},{n:"SÜDEN · LAGER",f:wallS,g:wallSglow},{n:"WESTEN · SPIND",f:wallW,g:function(){return "";}}];
+
+function renderScene(){
+  var w=WALLS[S.wall], s=defs()+shell()+w.f();
+  if(light())s+='<rect width="800" height="480" fill="url(#gBulb)" pointer-events="none"/>';
+  else s+='<rect width="800" height="480" fill="#020403" opacity=".95" pointer-events="none"/><g pointer-events="none">'+w.g()+"</g>";
+  $("scene").innerHTML=s;
+  $("wallname").textContent=w.n+(light()?"":" · DUNKEL");
+}
+function renderInv(){
+  var el=$("inv");
+  if(!S.inv.length){el.innerHTML='<span class="empty">Leer. Wie deine Aussichten.</span>';}
+  else el.innerHTML=S.inv.map(function(id){return '<button type="button" data-it="'+id+'" class="'+(S.sel===id?"sel":"")+'">'+esc(ITEMS[id].name)+"</button>";}).join("");
+  var bar=$("selbar");
+  if(S.sel){
+    bar.hidden=false;
+    bar.innerHTML="<span>Ausgewählt: <b>"+esc(ITEMS[S.sel].name)+"</b>. Tippe auf etwas im Raum oder einen zweiten Gegenstand.</span>"+
+      (ITEMS[S.sel].zoom?'<button class="btn" type="button" id="lookItem">Genauer ansehen</button>':"")+'<button class="btn" type="button" id="unsel">Abwählen</button>';
+  } else bar.hidden=true;
+}
+function fmt(t){var m=Math.floor(t/60),s=t%60;return(m<10?"0":"")+m+":"+(s<10?"0":"")+s;}
+function renderHeader(){
+  $("time").textContent=fmt(S.elapsed);$("hints").textContent=S.hints;
+  var on=monitorOn();
+  $("feed").hidden=!on;$("nosig").hidden=on;
+  $("ask").disabled=!on||S.won;
+  $("ask").textContent=on?"Publikum um Hilfe bitten":"Kein Bild, kein Publikum";
+  $("viewers").textContent=on?S.viewers.toLocaleString("de-DE")+" sehen zu":"Übertragung unterbrochen";
+}
+function renderSolution(){
+  var M=MONATE[V.month];
+  var steps=[
+    "Am Kartenhalter (Westen) die Stempelkarte nehmen. Oben steht "+M+".",
+    "Den Wandkalender von September auf "+M+" blättern und die Karte auflegen. Die Löcher zeigen "+V.dates.join(", ")+". Die Falle: Auf dem September zeigen sie "+V.decoy.map(function(d){return d===null?"leere Felder":d;}).join(", ")+".",
+    "Spindschloss: "+V.dates.join("-")+". Im Spind liegen Kleiderbügel, Isolierband und Notizbuch.",
+    "Kleiderbügel am Schraubstock (Osten) zum Drahthaken biegen. Drahthaken, Isolierband und Mopp (Süden) zur Hakenstange kombinieren.",
+    "Hakenstange am Lüftungsgitter (Süden) benutzen. Du bekommst den Schlüssel SK.",
+    "Sicherungskasten (Norden) aufschließen. Die LICHT-Sicherung in TÜR stecken. Es wird dunkel.",
+    "An der Werkzeugwand (Osten) leuchten im Dunkeln die Zahlen I bis IV auf den Umrissen "+V.order.map(function(c,k){return ROEM[k]+" "+TOOLS[c].name;}).join(", ")+". Im Hellen hängen dort die Nummern "+V.order.map(function(c){return V.digits[c];}).join(", ")+".",
+    "Tastenfeld (Norden): "+V.code+". Die TÜR-Sicherung muss stecken, das Licht ist dabei egal."
+  ];
+  $("solution").innerHTML=steps.map(function(t){return "<li>"+esc(t)+"</li>";}).join("");
+}
+function render(){renderScene();renderInv();renderHeader();if(S.zoom)renderZoom();}
+
+/* ---------- Inventar ---------- */
+function add(id){
+  if(S.inv.indexOf(id)<0)S.inv.push(id);
+  if(!S.pickedOnce){S.pickedOnce=true;setTimeout(function(){ach("pick");},400);}
+}
+function removeItem(id){S.inv=S.inv.filter(function(x){return x!==id;});if(S.sel===id)S.sel=null;}
+function isFuse(id){return id==="sich1"||id==="sich2";}
+function combine(a,b){
+  var has=function(id){return S.inv.indexOf(id)>=0;};
+  var P=function(x,y){return(a===x&&b===y)||(a===y&&b===x);};
+  if(P("buegel","mopp")||P("buegel","band"))return say("Der Bügel ist noch ein Bügel. Krumm, rund, nutzlos. Erst biegen, dann bauen. Und biegen braucht etwas, das festhält.");
+  if(P("draht","mopp")||P("draht","band")||P("band","mopp")){
+    if(has("draht")&&has("band")&&has("mopp")){
+      removeItem("draht");removeItem("mopp");add("stange");S.sel=null;
+      say("Du klebst den Drahthaken mit reichlich Isolierband an den Mopp. Es entsteht eine Hakenstange. Das Isolierband ist jetzt deutlich dünner.",ITEMS.stange.props);
+      ach("bastel");return;
+    }
+    if(P("draht","mopp"))return say("Du hältst den Haken an den Mopp. Er fällt ab. Er braucht etwas, das klebt.");
+    if(P("band","mopp"))return say("Ein Mopp mit Klebeband dran. Fehlt nur noch etwas, das du daran festklebst.");
+    return say("Ein klebriger Haken. Jetzt fehlt noch etwas Langes, an das er kommt.");
+  }
+  if(P("buegel","draht"))return nope();
+  if(isFuse(a)&&isFuse(b))return say("Zwei Sicherungen. Zusammen sind sie genau so viel wert wie einzeln. Wie Teamwork.");
+  if(a==="karte"||b==="karte")return say("Die Stempelkarte passt auf nichts in deiner Tasche. Sie sieht aus, als gehöre sie über etwas mit Zahlen.");
+  nope();
+}
+
+/* ---------- Raumobjekte ---------- */
+var DARK_OK=["kasten","keypad","wand","monitor","farbe","tuer"];
+function look(id){
+  if(!light()&&DARK_OK.indexOf(id)<0)return say(pick(["Zu dunkel. Du stößt dir das Knie. Das System notiert es.","Du tastest ins Leere. Das Leere tastet zurück.","Stockfinster. Hier leuchtet nichts."]));
+  switch(id){
+    case "monitor":return say(monitorOn()?"Ein Monitor. Er zeigt, was die Zuschauer schreiben. Leider.":"Der Monitor ist schwarz. Das Publikum auch, zumindest aus deiner Sicht.");
+    case "tuer":return say("Eine Stahltür ohne Griff. Daneben ein Tastenfeld. Aufgemalt: NUR MIT STROM UND CODE. Die Tür meint das ernst.");
+    case "keypad":return openZoom("keypad");
+    case "kasten":
+      if(!S.boxOpen)return say(light()?"Ein Sicherungskasten mit kleinem Vorhängeschloss. Auf dem Deckel steht SK.":"Du findest den Kasten an seinem Leuchtkreis. Der Hausmeister hat mitgedacht. Einmal.");
+      return openZoom("kasten");
+    case "kamera":return say("Eine Kamera mit rotem Licht. Irgendwo da draußen isst jemand Chips und sieht dir zu.");
+    case "wand":return openZoom("wand");
+    case "werkbank":return say("Eine Werkbank. Der Hausmeister hat sie leergeräumt. Nur der Schraubstock war zu fest angeschraubt.");
+    case "schraubstock":return say("Ein Schraubstock. Hält Dinge fest, damit man sie verbiegen kann. Das System wünschte, es hätte so etwas für dich.");
+    case "kiste":return say("Eine Werkzeugkiste. Leer. Der Hausmeister war gründlich, nur nicht beim Aufräumen der Werkzeugwand.");
+    case "regal":return say("Ein Regal mit Putzmitteln, Klopapier und einem Karton alter Lappen. Es ist an die Wand geschraubt und trägt gerade so die Putzmittel. Dich nicht.");
+    case "glasreiniger":return say("Glasreiniger. Fast leer. Hier gibt es kein Fenster. Das System findet das witzig.",[["flüssig",1]]);
+    case "farbe":return say(light()?"Eine Dose Leuchtfarbe, phosphoreszierend. Leer. Jemand war fleißig.":"Die leere Dose leuchtet schwach grün. Ein paar Tropfen sind am Boden angetrocknet.");
+    case "gitter":return say(S.keyGot?"Ein leeres Lüftungsgitter. Es zieht.":"Ein Lüftungsgitter, gut drei Meter hoch. Dahinter hängt etwas an einem kleinen Haken und glitzert. Mit der Hand kommst du nicht ran.");
+    case "eimer":return say("Ein Eimer mit grauem Wasser. Draufstellen? Er hält etwa so viel aus wie dein Selbstwertgefühl.",[["hohl",3]]);
+    case "mopp":S.moppTaken=true;add("mopp");render();return say("Du nimmst den Wischmopp. "+ITEMS.mopp.desc,ITEMS.mopp.props);
+    case "spind":return openZoom(S.spindOpen?"spindinnen":"spindschloss");
+    case "stempeluhr":return say("Eine Stempeluhr. Wer kommt, steckt die Karte rein, und die Uhr stanzt ein Loch für den Tag. Die Uhr steht. Der Hausmeister wohl auch.");
+    case "karten":
+      if(S.karteTaken)return say("Die übrigen Karten sind leer. Niemand sonst hat hier je gearbeitet.");
+      S.karteTaken=true;add("karte");render();return say("Du ziehst die einzige gestempelte Karte heraus. "+ITEMS.karte.desc());
+    case "kalender":return openZoom("kalender");
+  }
+}
+function useOn(item,id){
+  if(!light()&&DARK_OK.indexOf(id)<0)return say("Im Dunkeln? Mutig. Sinnlos, aber mutig.");
+  if(id==="kalender"&&item==="karte"){S.calOverlay=true;S.sel=null;renderInv();return openZoom("kalender");}
+  if(id==="schraubstock"&&item==="buegel"){removeItem("buegel");add("draht");S.sel=null;render();return say("Du spannst den Bügel ein und biegst ihn gerade, bis auf einen Haken am Ende. Ein Drahthaken.",ITEMS.draht.props);}
+  if(id==="gitter"){
+    if(S.keyGot)return say("Da oben ist nichts mehr. Außer Staub und deinen Erwartungen.");
+    if(item==="stange"){S.keyGot=true;add("sk");S.sel=null;render();ach("angel");return say("Du fädelst den Haken durch das Gitter, fischst nach dem Glitzern und ziehst einen kleinen Schlüssel heraus. Anhänger: SK.");}
+    if(item==="mopp")return say("Du stocherst mit dem Mopp durch das Gitter. Er erreicht das Glitzern, schiebt es hin und her und lässt es hängen. Ein Haken wäre jetzt was.");
+    if(item==="draht"||item==="buegel")return say("Zu kurz. Du bist nicht groß genug, und der Draht auch nicht.");
+    return say("Das reicht nicht bis da oben. Lang muss es sein.");
+  }
+  if(id==="kasten"){
+    if(item==="sk"&&!S.boxOpen){S.boxOpen=true;removeItem("sk");render();say("Das Vorhängeschloss springt auf. Der Kasten ist offen.");return openZoom("kasten");}
+    if(isFuse(item)&&S.boxOpen)return openZoom("kasten");
+  }
+  if(id==="spind")return say("Das Schloss will Zahlen, keine Gegenstände.");
+  if(id==="tuer"||id==="keypad")return say("Die Tür ist aus Stahl. Was immer du da in der Hand hast, sie hat keine Meinung dazu.");
+  if(id==="eimer"&&item==="mopp")return say("Du tunkst den Mopp in den Eimer. Er ist jetzt nasser. Sonst nichts.");
+  nope();
+}
+
+/* ---------- Nahansichten ---------- */
+function openZoom(type){
+  if(type==="kalender"&&!light())return say("Zu dunkel zum Lesen. Der Kalender ist aus Papier, nicht aus Leuchtfarbe.");
+  S.zoom=type;$("zoom").hidden=false;renderZoom();
+  var b=$("zoom").querySelector("button,input");if(b)b.focus({preventScroll:true});
+}
+function closeZoom(){S.zoom=null;$("zoom").hidden=true;$("zoom").innerHTML="";}
+function zframe(title,body){return '<div class="zhead"><h2>'+esc(title)+'</h2><button class="btn" type="button" data-z="close">Zurück</button></div><div class="zbody">'+body+"</div>";}
+function calGrid(m,overlay){
+  var off=offs(m),days=dim(m),h="";
+  ["Mo","Di","Mi","Do","Fr","Sa","So"].forEach(function(d){h+='<div class="dn">'+d+"</div>";});
+  for(var i=0;i<42;i++){
+    var d=i-off+1,valid=d>=1&&d<=days,cls="c"+(valid?"":" x");
+    if(overlay)cls+=V.holes.indexOf(i)>=0?" hole":" cover";
+    h+='<div class="'+cls+'">'+(valid?d:"")+"</div>";
+  }
+  return h;
+}
+function renderZoom(){
+  var z=$("zoom"),t=S.zoom,h="";
+  if(t==="kalender"){
+    var hasCard=S.inv.indexOf("karte")>=0;
+    h=zframe("Wandkalender",'<div class="cal"><div class="calh"><button type="button" data-z="prev" aria-label="Vorheriger Monat">‹</button><span>'+MONATE[S.calMonth]+" "+JAHR+'</span><button type="button" data-z="next" aria-label="Nächster Monat">›</button></div><div class="grid">'+calGrid(S.calMonth,S.calOverlay&&hasCard)+"</div>"+
+      (S.calOverlay&&hasCard?'<div class="cardlabel">STEMPELKARTE · BRETTSCHNEIDER · '+MONATE[V.month].toUpperCase()+"</div>":"")+"</div>"+
+      (hasCard?'<button class="btn" type="button" data-z="overlay">'+(S.calOverlay?"Stempelkarte abnehmen":"Stempelkarte auflegen")+"</button>":'<p class="znote">Ein Wandkalender. Jemand hat vergessen umzublättern. Oder es war ihm egal.</p>'));
+  } else if(t==="karte"){
+    var g="";for(var i=0;i<42;i++)g+='<div class="c '+(V.holes.indexOf(i)>=0?"hole":"cover")+'"></div>';
+    h=zframe("Stempelkarte",'<div class="cal" style="background:#c9b48a"><div class="calh" style="justify-content:center">'+MONATE[V.month].toUpperCase()+'</div><div class="grid">'+g+'</div><div class="cardlabel">K. BRETTSCHNEIDER · WARTUNG B-7</div></div><p class="znote">Sieben Spalten, sechs Zeilen, drei Löcher. Die Größe kommt dir bekannt vor.</p>');
+  } else if(t==="buch"){
+    h=zframe("Notizbuch",'<div class="book"><div class="pg">Seite '+(S.bookPage+1)+" / "+NOTIZEN.length+"</div>"+esc(NOTIZEN[S.bookPage])+'</div><div class="row"><button class="btn" type="button" data-z="bprev"'+(S.bookPage?"":" disabled")+'>Zurückblättern</button><button class="btn" type="button" data-z="bnext"'+(S.bookPage<NOTIZEN.length-1?"":" disabled")+">Weiterblättern</button></div>");
+  } else if(t==="spindschloss"){
+    var d=S.dials||(S.dials=[0,0,0]);
+    h=zframe("Spindschloss",'<p class="znote">Ein Drehschloss mit drei Zahlen von 0 bis 39. Das Typenschild ist zerkratzt.</p><div class="dials">'+d.map(function(v,i){return '<div class="dial"><button type="button" data-z="up'+i+'" aria-label="Zahl '+(i+1)+' erhöhen">▲</button><input id="dial'+i+'" inputmode="numeric" maxlength="2" value="'+v+'" aria-label="Zahl '+(i+1)+'"><button type="button" data-z="dn'+i+'" aria-label="Zahl '+(i+1)+' verringern">▼</button></div>';}).join("")+'</div><button class="btn" type="button" data-z="pull">Am Bügel ziehen</button>');
+  } else if(t==="spindinnen"){
+    var names={buegel:"Kleiderbügel",band:"Isolierband",buch:"Notizbuch"};
+    h=zframe("Spind",'<p class="znote">Eine Arbeitsjacke mit leeren Taschen. Nur ein Kassenbon steckt darin: 1x Leuchtfarbe, 1x Kaffee, 1x Kaffee, 1x Kaffee.</p><div class="items">'+(S.spindItems.length?S.spindItems.map(function(id){return '<button type="button" data-z="take:'+id+'">'+names[id]+" nehmen</button>";}).join(""):'<span class="znote">Sonst ist der Spind leer.</span>')+"</div>");
+  } else if(t==="kasten"){
+    var lab={licht:"LICHT",monitor:"MONITOR",tuer:"TÜR",kaffee:"KAFFEE"};
+    h=zframe("Sicherungskasten",'<p class="znote">Vier Steckplätze. Antippen nimmt eine Sicherung heraus oder steckt eine aus deinem Inventar hinein.</p><div class="fuses">'+["licht","monitor","tuer","kaffee"].map(function(k){
+      var v=S.slots[k],inner=v==="burnt"?'<div class="fuse burnt">✕</div>':v?'<div class="fuse">16A</div>':"";
+      var st=v==="burnt"?"durch":v?"an":"leer";
+      return '<button type="button" class="slot" data-z="slot:'+k+'"><span class="lab">'+lab[k]+'</span><span class="sock">'+inner+'</span><span class="st">'+st+"</span></button>";
+    }).join("")+"</div>");
+  } else if(t==="keypad"){
+    var pw=doorPower(),disp=pw?(S.keypad.replace(/./g,"•")+"____".slice(S.keypad.length)):"";
+    var keys=[1,2,3,4,5,6,7,8,9,"C",0,"OK"].map(function(k){return '<button type="button" data-z="key:'+k+'">'+k+"</button>";}).join("");
+    h=zframe("Tastenfeld",'<div class="pad"><div class="disp'+(pw?"":" off")+'" id="kdisp">'+(pw?disp:"·")+"</div>"+keys+'</div><p class="znote">'+(pw?"Vier Ziffern.":"Das Display bleibt schwarz. Kein Strom.")+"</p>");
+  } else if(t==="wand"){
+    h=zframe("Werkzeugwand",'<svg viewBox="0 0 680 370" role="img" aria-label="Werkzeugwand">'+defs()+(light()?board(false):'<rect width="680" height="370" fill="#020403"/>'+board(true))+'</svg><p class="znote">'+(light()?"Sechs Umrisse von Werkzeug, das nicht mehr da ist. Über jedem Haken ein Nummernschild.":"Im Dunkeln leuchtet, was der Hausmeister mit der guten Farbe gemalt hat.")+"</p>");
+  }
+  z.innerHTML=h;
+}
+function zoomAction(a){
+  if(a==="close")return closeZoom();
+  if(a==="prev"||a==="next"){S.calMonth=(S.calMonth+(a==="next"?1:11))%12;renderScene();return renderZoom();}
+  if(a==="overlay"){S.calOverlay=!S.calOverlay;return renderZoom();}
+  if(a==="bprev"||a==="bnext"){S.bookPage=Math.max(0,Math.min(NOTIZEN.length-1,S.bookPage+(a==="bnext"?1:-1)));return renderZoom();}
+  if(/^(up|dn)\d$/.test(a)){readDials();var i=+a[2];S.dials[i]=(S.dials[i]+(a.slice(0,2)==="up"?1:39))%40;return renderZoom();}
+  if(a==="pull"){
+    readDials();var d=S.dials;
+    if(d[0]===V.dates[0]&&d[1]===V.dates[1]&&d[2]===V.dates[2]){S.spindOpen=true;closeZoom();render();ach("spind");say("Klack. Der Spind ist offen. Es riecht nach Hausmeister.");return openZoom("spindinnen");}
+    if(V.decoy.every(function(x,k){return x===d[k];})){ach("sept");return say("Klick. Nichts. Diese Zahlen gab es mal. Im falschen Monat.");}
+    return say("Klick. Nichts. Das Schloss bleibt ein Schloss.");
+  }
+  if(a.indexOf("take:")===0){var id=a.slice(5);S.spindItems=S.spindItems.filter(function(x){return x!==id;});add(id);render();return say("Genommen: "+ITEMS[id].name+". "+ITEMS[id].desc,ITEMS[id].props);}
+  if(a.indexOf("slot:")===0)return slot(a.slice(5));
+  if(a.indexOf("key:")===0)return keypad(a.slice(4));
+}
+function readDials(){for(var i=0;i<3;i++){var el=$("dial"+i);if(el){var n=parseInt(el.value,10);S.dials[i]=isNaN(n)?0:Math.max(0,Math.min(39,n));}}}
+function slot(k){
+  var v=S.slots[k];
+  if(v==="burnt")return say("Durchgebrannt. Die Kaffeemaschine hat sie auf dem Gewissen. Die Sicherung ist fest verschmort und bleibt, wo sie ist.");
+  var wasLight=light(),wasMon=monitorOn();
+  if(v){S.slots[k]=null;add(v);say("Du ziehst die "+k.toUpperCase().replace("TUER","TÜR")+"-Sicherung heraus.");}
+  else{
+    var f=isFuse(S.sel)?S.sel:S.inv.filter(isFuse)[0];
+    if(!f)return say("Leerer Steckplatz. Du hast keine Sicherung dabei. Du hast generell wenig dabei.");
+    S.slots[k]=f;removeItem(f);
+    say(k==="tuer"?"Du steckst die Sicherung in TÜR. Irgendwo hinter der Stahltür summt etwas.":"Sicherung steckt. Strom fließt. Das System ist unbeeindruckt.");
+  }
+  if(wasLight&&!light()){
+    setTimeout(function(){
+      if(!S.seenDark){S.seenDark=true;ach("dunkel");say("Licht aus. Die Kameras sehen nichts mehr. Das System sieht trotzdem alles und ist enttäuscht.");}
+      else say("Wieder dunkel.");
+      render();
+    },60);
+  }
+  if(!wasLight&&light())say("Licht an. Die Zuschauer jubeln. Sie haben sonst nichts.");
+  if(wasMon&&!monitorOn())ach("publikum");
+  if(!wasMon&&monitorOn()){setTimeout(function(){chat("WIEDER DA","Krümel_88");chat("was haben wir verpasst");},300);}
+  render();
+}
+function keypad(k){
+  if(!doorPower())return say("Du drückst Tasten. Die Tasten drücken nichts zurück. Kein Strom.");
+  if(k==="C"){S.keypad="";return renderZoom();}
+  if(k==="OK"){
+    var c=S.keypad;S.keypad="";
+    if(c===V.code)return win();
+    if(TROLLCODES.indexOf(c)>=0)ach("troll");
+    say(c.length<4?"Vier Ziffern. Das stand da. Das System hat es extra groß gemacht.":"Bzzzt. Falscher Code. Die Tür bleibt zu, die Zuschauer lachen.");
+    if(c.length===4){chat(pick(["HAHAHA","falsch lol","bzzzt","nochmal nochmal"]));chat(pick(["ich hab 20 gold auf dich gesetzt mach hinne","so wird das nix"]));}
+    return renderZoom();
+  }
+  if(S.keypad.length<4)S.keypad+=k;
+  renderZoom();
+}
+function win(){
+  S.won=true;ach("raus");closeZoom();render();
+  var m=$("win");m.hidden=false;
+  var mon=monitorOn();
+  m.innerHTML='<div class="wincard" role="dialog" aria-label="Geschafft"><h2>TÜR OFFEN</h2><p>'+esc(mon?"Die Stahltür schwingt auf. Dahinter: ein Gang, ein Pfeil, ein Schild „Ebene 1, bitte hier entlang“. Die Zuschauer klatschen. Ein paar haben Geld verloren.":"Die Stahltür schwingt auf. Niemand hat es gesehen. Das System hat es gesehen und vergisst es gerade absichtlich.")+'</p><dl><dt>Zeit</dt><dd>'+fmt(S.elapsed)+"</dd><dt>Hilfen</dt><dd>"+S.hints+"</dd><dt>Erfolge</dt><dd>"+S.ach.length+" / "+Object.keys(ACH).length+'</dd><dt>Variante</dt><dd>'+V.seed+'</dd></dl><div class="row" style="justify-content:flex-start"><button class="btn" type="button" id="again">Neuer Raum</button><button class="btn" type="button" id="stay">Raum ansehen</button></div></div>';
+  $("again").onclick=restart;$("stay").onclick=function(){m.hidden=true;};
+  $("again").focus();
+}
+
+/* ---------- Ereignisse ---------- */
+function onHs(id){
+  if(S.won)return;
+  if(S.sel){var it=S.sel;S.sel=null;renderInv();useOn(it,id);}
+  else look(id);
+}
+$("scene").addEventListener("click",function(e){var g=e.target.closest("[data-hs]");if(g)onHs(g.getAttribute("data-hs"));});
+$("scene").addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){var g=e.target.closest("[data-hs]");if(g){e.preventDefault();onHs(g.getAttribute("data-hs"));}}});
+$("navL").onclick=function(){closeZoom();S.wall=(S.wall+3)%4;renderScene();};
+$("navR").onclick=function(){closeZoom();S.wall=(S.wall+1)%4;renderScene();};
+document.addEventListener("keydown",function(e){
+  if(e.target.tagName==="INPUT")return;
+  if(e.key==="Escape"&&S.zoom)closeZoom();
+  else if(e.key==="ArrowLeft"&&!S.zoom)$("navL").click();
+  else if(e.key==="ArrowRight"&&!S.zoom)$("navR").click();
+});
+$("inv").addEventListener("click",function(e){
+  var b=e.target.closest("[data-it]");if(!b)return;var id=b.getAttribute("data-it");
+  if(S.sel===id){S.sel=null;renderInv();return;}
+  if(S.sel){var a=S.sel;S.sel=null;combine(a,id);render();return;}
+  S.sel=id;renderInv();
+  var it=ITEMS[id];say(typeof it.desc==="function"?it.desc():it.desc,it.props);
+});
+$("selbar").addEventListener("click",function(e){
+  if(e.target.id==="unsel"){S.sel=null;renderInv();}
+  if(e.target.id==="lookItem"){var z=ITEMS[S.sel].zoom;S.sel=null;renderInv();openZoom(z);}
+});
+$("zoom").addEventListener("click",function(e){var b=e.target.closest("[data-z]");if(b)zoomAction(b.getAttribute("data-z"));});
+$("ask").onclick=function(){giveHint(true);};
+$("restart").onclick=restart;
+
+/* ---------- Takt ---------- */
+var chatTimer;
+function scheduleChat(){chatTimer=setTimeout(function(){if(!S.won){ambient();S.viewers=Math.max(300,S.viewers+Math.round((Math.random()-.45)*40));renderHeader();}scheduleChat();},4000+Math.random()*5000);}
+setInterval(function(){
+  if(S.won)return;
+  S.elapsed++;
+  var st=stageOf();
+  if(st!==S.stage){S.stage=st;S.stageSince=S.elapsed;}
+  if(S.elapsed-S.stageSince>=200&&!S.autoHinted[st]&&monitorOn()&&!(S.hintIdx[st]>0)){S.autoHinted[st]=true;giveHint(false);}
+  renderHeader();
+},1000);
+
+function boot(saved){
+  if(saved&&saved.V&&saved.S){V=saved.V;S=saved.S;}
+  else{V=newVariant();S=freshState();}
+  S.zoom=null;$("zoom").hidden=true;$("win").hidden=true;$("feed").innerHTML="";
+  renderSolution();render();
+  if(!saved){
+    say("Willkommen in Wartungsraum B-7. Du bist durch eine Falltür gefallen, die es offiziell nicht gibt. Der Ausgang braucht Strom und einen Code. Du hast beides nicht. Viel Erfolg, oder auch nicht.");
+    setTimeout(function(){ach("start");},600);
+    chat("da fällt wer rein","Krümel_88");chat("oh nein nicht schon wieder der wartungsraum","Oma_Gertrud");chat("wetten werden angenommen!!","BetKönig");
+  } else say("Weiter geht's. Das System hat nicht auf dich gewartet, aber du bist trotzdem noch da.");
+}
+function restart(){clearTimeout(chatTimer);boot(null);scheduleChat();}
+if(window.claude&&window.claude.hot&&window.claude.hot.snapshot)window.claude.hot.snapshot(function(){return {V:V,S:S};});
+var hot=window.claude&&window.claude.hot;
+if(hot&&hot.ready)hot.ready(function(d){boot(d&&d.V?d:null);scheduleChat();});
+else{boot(hot&&hot.data&&hot.data.V?hot.data:null);scheduleChat();}
+})();
+</script>
+
+</body>
+</html>
